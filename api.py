@@ -1,22 +1,23 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from servidor import Servidor
-from gerenciador import Gerenciador
 from banco import Base, engine, SessaoLocal
 from modelo import ServidorModelo
-
-import modelo
 
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Cloud Resource Manager")
-gerenciador = Gerenciador()
 
 
 class ServidorEntrada(BaseModel):
     identificador: int
+    nome: str
+    ip: str
+    sistema: str
+
+
+class ServidorAtualizacao(BaseModel):
     nome: str
     ip: str
     sistema: str
@@ -49,12 +50,113 @@ def criar_servidor(dados: ServidorEntrada):
         "identificador": servidor.identificador
     }
 
+
 @app.get("/servidores")
 def listar_servidores():
     banco = SessaoLocal()
-
     servidores = banco.query(ServidorModelo).all()
-
     banco.close()
 
     return servidores
+
+
+@app.get("/servidores/{identificador}")
+def buscar_servidor(identificador: int):
+    banco = SessaoLocal()
+    servidor = banco.get(ServidorModelo, identificador)
+    banco.close()
+
+    if servidor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Servidor não encontrado"
+        )
+
+    return servidor
+
+
+@app.put("/servidores/{identificador}")
+def atualizar_servidor(
+    identificador: int,
+    dados: ServidorAtualizacao
+):
+    banco = SessaoLocal()
+    servidor = banco.get(ServidorModelo, identificador)
+
+    if servidor is None:
+        banco.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Servidor não encontrado"
+        )
+
+    servidor.nome = dados.nome
+    servidor.ip = dados.ip
+    servidor.sistema = dados.sistema
+
+    banco.commit()
+    banco.refresh(servidor)
+    banco.close()
+
+    return servidor
+
+
+@app.delete("/servidores/{identificador}")
+def remover_servidor(identificador: int):
+    banco = SessaoLocal()
+    servidor = banco.get(ServidorModelo, identificador)
+
+    if servidor is None:
+        banco.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Servidor não encontrado"
+        )
+
+    banco.delete(servidor)
+    banco.commit()
+    banco.close()
+
+    return {"mensagem": "Servidor removido com sucesso"}
+
+
+@app.post("/servidores/{identificador}/iniciar")
+def iniciar_servidor(identificador: int):
+    banco = SessaoLocal()
+    servidor = banco.get(ServidorModelo, identificador)
+
+    if servidor is None:
+        banco.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Servidor não encontrado"
+        )
+
+    servidor.status = "Ligado"
+
+    banco.commit()
+    banco.refresh(servidor)
+    banco.close()
+
+    return servidor
+
+
+@app.post("/servidores/{identificador}/parar")
+def parar_servidor(identificador: int):
+    banco = SessaoLocal()
+    servidor = banco.get(ServidorModelo, identificador)
+
+    if servidor is None:
+        banco.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Servidor não encontrado"
+        )
+
+    servidor.status = "Desligado"
+
+    banco.commit()
+    banco.refresh(servidor)
+    banco.close()
+
+    return servidor
