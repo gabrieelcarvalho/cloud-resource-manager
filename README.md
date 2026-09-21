@@ -132,4 +132,4 @@ O Cloud Resource Manager foi desenvolvido como projeto de estudo e portfólio, a
 
 ## 👨‍💻 Autor
 
-Desenvolvido por Gabriel Carvalho.
+Desenvolvido por Gabriel Carvalho da Silva.
